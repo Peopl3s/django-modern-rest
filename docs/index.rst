@@ -197,7 +197,6 @@ Here are our amazing people who made this project possible.
 
   pages/openapi/schema.rst
   pages/openapi/openapi.rst
-  pages/openapi/spec-first.rst
   pages/openapi/openapi-reference.rst
 
 
@@ -217,6 +216,14 @@ Here are our amazing people who made this project possible.
   pages/deep-dive/public-api.rst
   pages/deep-dive/internal-api.rst
   pages/deep-dive/changelog.rst
+
+
+.. toctree::
+  :caption: AI and LLMs
+  :hidden:
+
+  pages/ai/spec-first.rst
+  pages/ai/dmr-from-ninja.rst
 
 
 .. toctree::
