@@ -1,5 +1,6 @@
 import dataclasses
 from collections.abc import Awaitable, Callable, Sequence
+from functools import wraps
 from http import HTTPStatus
 from typing import Any, ClassVar, get_args
 
@@ -264,6 +265,8 @@ def _build_controller(  # noqa: WPS211, WPS234
     event_model: Any,
     custom_metadata_cls: type[EndpointMetadata],
 ) -> type[Controller[_SerializerT]]:
+
+    @wraps(func, updated=())
     class SSEController(  # noqa: WPS431
         Controller[serializer],  # type: ignore[valid-type]
         *filter(None, [path, query, headers, cookies]),  # type: ignore[misc]  # noqa: WPS606
@@ -323,7 +326,7 @@ def _build_controller(  # noqa: WPS211, WPS234
                 )
             return streaming_response
 
-    return SSEController
+    return SSEController  # pyright: ignore[reportReturnType]
 
 
 def _resolve_event_model(func: Callable[..., Any]) -> Any:
