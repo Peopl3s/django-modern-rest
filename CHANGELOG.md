@@ -9,6 +9,8 @@ We follow [Semantic Versions](https://semver.org/).
 
 - Added `@attrs.define` official support, #706
 - Added `msgpack` parser and renderer, #630
+- Added `i18n` support for user-facing error messages
+  using Django's `gettext_lazy`, #426
 - Added `MediaType` validation for the default `encoding` field
   and OpenAPI 3.2 `itemEncoding` and `prefixEncoding` fields, #695
 - Added `MediaTypeMetadata` metadata item to set required parameters
@@ -25,8 +27,6 @@ We follow [Semantic Versions](https://semver.org/).
 
 - Added `$dmr-openapi-skeleton` AI agent skill, #693
 - Added `$dmr-from-django-ninja` AI agent skill, #693
-- Added i18n support for user-facing error messages
-  using Django's `gettext_lazy`, #426
 
 
 ## Version 0.3.0 (2026-03-17)
