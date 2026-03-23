@@ -31,7 +31,7 @@ from urllib.parse import urlencode
 import django
 import httpx
 import uvicorn
-import xmltodict
+import xmltodict_rs as xmltodict
 from django.conf import settings
 from django.core.handlers.asgi import ASGIHandler
 from django.db import IntegrityError

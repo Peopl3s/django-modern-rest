@@ -4,7 +4,7 @@ from typing import Annotated, Any, TypeAlias, final
 from xml.parsers import expat
 
 import pydantic
-import xmltodict
+import xmltodict_rs as xmltodict
 from django.http import HttpRequest, HttpResponse
 from typing_extensions import override
 
