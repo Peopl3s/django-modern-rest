@@ -101,6 +101,7 @@ faker = "^40.1"
 inline-snapshot = "^0.32"
 syrupy = "^5.1"
 schemathesis = "^4.12"
+tracecov = "^0.18"
 polyfactory = "^3.2"
 
 httpx = "^0.28"
@@ -276,6 +277,13 @@ addopts = [
   "--cov-report=xml",
   "--cov-branch",
   "--cov-fail-under=100",
+  # Tracecov:
+  "--tracecov-skip-covered",
+  "--tracecov-format=text,html,markdown",
+  # TODO: set all values to 100
+  "--tracecov-fail-under-parameters=92",
+  "--tracecov-fail-under-keywords=91",
+  "--tracecov-fail-under-responses=50",
   # Ignores benchmarks:
   "--ignore=benchmarks/",
   # Ignores docs:
@@ -327,6 +335,10 @@ enable_error_code = [
 plugins = [
   "pydantic.mypy",
 ]
+
+[[tool.mypy.overrides]]
+module = "tracecov.*"
+follow_untyped_imports = true
 
 
 [tool.pyright]
