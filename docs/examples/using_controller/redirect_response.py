@@ -1,25 +1,20 @@
 from http import HTTPStatus
-from typing import Final
 
 from django.http import HttpResponse, HttpResponseRedirect
 
-from dmr import (
-    Controller,
-    HeaderSpec,
-    validate,
-)
+from dmr import Controller, HeaderSpec, validate
 from dmr.metadata import ResponseSpec
 from dmr.plugins.pydantic import PydanticSerializer
 
-_RedirectSpec: Final = ResponseSpec(
-    None,
-    status_code=HTTPStatus.FOUND,
-    headers={'Location': HeaderSpec()},
-)
-
 
 class UserController(Controller[PydanticSerializer]):
-    @validate(_RedirectSpec)
+    @validate(
+        ResponseSpec(
+            None,
+            status_code=HTTPStatus.FOUND,
+            headers={'Location': HeaderSpec()},
+        ),
+    )
     def get(self) -> HttpResponse:
         return HttpResponseRedirect(
             'https://example.com/api/new/user/list',
