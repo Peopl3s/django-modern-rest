@@ -1,6 +1,6 @@
 import enum
 from collections.abc import Mapping
-from typing import Any, Final, final
+from typing import TYPE_CHECKING, Any, Final, final
 
 from django.http.request import HttpRequest
 from django.utils.translation import gettext_lazy as _
@@ -19,7 +19,9 @@ from dmr.internal.negotiation import (
 from dmr.metadata import EndpointMetadata, get_annotated_metadata
 from dmr.parsers import Parser
 from dmr.renderers import Renderer
-from dmr.serializer import BaseSerializer
+
+if TYPE_CHECKING:
+    from dmr.serializer import BaseSerializer
 
 _CANNOT_PARSE_MSG: Final = _(
     'Cannot parse request body with'
@@ -42,7 +44,7 @@ class RequestNegotiator:
     def __init__(
         self,
         metadata: EndpointMetadata,
-        serializer: type[BaseSerializer],
+        serializer: type['BaseSerializer'],
     ) -> None:
         """Initialization happens during an endpoint creation in import time."""
         self._serializer = serializer
@@ -117,7 +119,7 @@ class ResponseNegotiator:
     def __init__(
         self,
         metadata: EndpointMetadata,
-        serializer: type[BaseSerializer],
+        serializer: type['BaseSerializer'],
     ) -> None:
         """Initialization happens during an endpoint creation in import time."""
         self._serializer = serializer
@@ -231,6 +233,7 @@ def conditional_type(
 
 def get_conditional_types(
     model: Any,
+    model_meta: tuple[Any, ...],
 ) -> Mapping[str, Any] | None:
     """
     Returns possible conditional types.
@@ -238,7 +241,7 @@ def get_conditional_types(
     Conditional types are defined with :data:`typing.Annotated`
     and :func:`dmr.negotiation.conditional_type` helper.
     """
-    metadata = get_annotated_metadata(model, _ConditionalType)
+    metadata = get_annotated_metadata(model, model_meta, _ConditionalType)
     if metadata:
         return metadata.computed
     return None

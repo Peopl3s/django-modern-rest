@@ -40,29 +40,24 @@ class UserCreateController(
 
 Use this shape when one route has one operation or when a single class naturally owns the endpoint.
 
-## Use Blueprints for Multi-Method Paths
+## Correctly use controller for Multi-Method Paths
 
-Prefer this shape for multi-method paths: keep several methods in one Blueprint when they share the same parsing logic,
-and split into multiple Blueprints only when parsing contracts differ materially.
+Prefer this shape for multi-method paths: keep several methods in one controller when they share the same logic and the same URL,
+and split into multiple controllers only when there are different logical boundaries or URLs.
 
 ```python
 from django.urls import path
 
-from dmr import Blueprint, Body
+from dmr import Controller, Body
 from dmr.plugins.pydantic import PydanticSerializer
-from dmr.routing import Router, compose_blueprints
+from dmr.routing import Router
 
 
-class UserListBlueprint(Blueprint[PydanticSerializer]):
+class UsersController(Controller[PydanticSerializer]):
     def get(self) -> list[UserOutput]:
         return []
 
-
-class UserCreateBlueprint(
-    Body[UserCreateInput],
-    Blueprint[PydanticSerializer],
-):
-    def post(self) -> UserOutput:
+    def post(self, parsed_body: Body[UserCreateInput]) -> UserOutput:
         return UserOutput(id=1, email=self.parsed_body.email)
 
 
@@ -70,10 +65,7 @@ router = Router(
     [
         path(
             'users/',
-            compose_blueprints(
-                UserListBlueprint,
-                UserCreateBlueprint,
-            ).as_view(),
+            UsersController.as_view(),
             name='users',
         ),
     ],

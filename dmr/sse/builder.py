@@ -13,13 +13,13 @@ from typing import Any, ClassVar, get_args
 from django.http import HttpRequest, HttpResponse
 from typing_extensions import TypeVar, override
 
-from dmr.components import Cookies, Headers, Path, Query
+from dmr.components import ComponentParser, Cookies, Headers, Path, Query
 from dmr.controller import Controller
 from dmr.cookies import NewCookie
 from dmr.endpoint import Endpoint, validate
 from dmr.exceptions import UnsolvableAnnotationsError
 from dmr.internal.negotiation import force_request_renderer
-from dmr.metadata import EndpointMetadata, ResponseSpec
+from dmr.metadata import EndpointMetadata, ResponseSpec, get_annotated_metadata
 from dmr.renderers import Renderer
 from dmr.security import AsyncAuth
 from dmr.serializer import BaseSerializer
@@ -367,7 +367,6 @@ def _build_controller(  # noqa: WPS211, WPS234
     @wraps(func, updated=())
     class SSEController(  # noqa: WPS431
         _BaseSSEController[serializer],  # type: ignore[valid-type]
-        *filter(None, [path, query, headers, cookies]),  # type: ignore[misc]  # noqa: WPS606
     ):
         regular_renderer = _regular_renderer
         sse_renderer = _sse_renderer
@@ -383,12 +382,12 @@ def _build_controller(  # noqa: WPS211, WPS234
             validate_responses=validate_responses,
             auth=auth,
         )
-        async def get(self) -> SSEStreamingResponse:
-            context = SSEContext(  # pyright: ignore[reportUnknownVariableType]
-                self.parsed_path if path else None,  # pyright: ignore[reportUnknownMemberType]
-                self.parsed_query if query else None,  # pyright: ignore[reportUnknownMemberType]
-                self.parsed_headers if headers else None,  # pyright: ignore[reportUnknownMemberType]
-                self.parsed_cookies if cookies else None,  # pyright: ignore[reportUnknownMemberType]
+        async def get(self, **kwargs: Any) -> SSEStreamingResponse:
+            context = SSEContext(
+                kwargs.get('parsed_path'),
+                kwargs.get('parsed_query'),
+                kwargs.get('parsed_headers'),
+                kwargs.get('parsed_cookies'),
             )
 
             # Now, everything is ready to send SSE events:
@@ -401,6 +400,25 @@ def _build_controller(  # noqa: WPS211, WPS234
                 headers=response.headers,
                 cookies=response.cookies,
             )
+
+        # FIXME: don't look at this, this will be removed in
+        # https://github.com/wemake-services/django-modern-rest/pull/736
+        new_annotations = {'return': get.__annotations__['return']}  # noqa: RUF012
+        for component in filter(  # pyrefly: ignore[no-matching-overload]  # noqa: WPS604
+            None,
+            [path, query, headers, cookies],
+        ):
+            component_parser = get_annotated_metadata(
+                component,
+                None,
+                ComponentParser,  # type: ignore[type-abstract]
+            )
+            assert component_parser  # noqa: S101
+            new_annotations[component_parser.context_name] = component
+            del component_parser, component  # noqa: WPS420
+
+        get.__annotations__ = new_annotations
+        del new_annotations  # noqa: WPS420, WPS604
 
     return SSEController  # pyright: ignore[reportReturnType]
 
