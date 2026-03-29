@@ -54,6 +54,8 @@ forbidden_modules =
   jwt
   openapi_spec_validator
   polyfactory
+  attrs
+  attr
   # internal modules:
   dmr_pytest
   django_test_app
