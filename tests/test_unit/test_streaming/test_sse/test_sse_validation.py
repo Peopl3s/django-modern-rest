@@ -303,7 +303,6 @@ async def test_event_generic_validation_skip(
 async def test_event_validation_from_settings(
     dmr_async_rf: DMRAsyncRequestFactory,
     settings: LazySettings,
-    dmr_clean_settings: None,
     *,
     serializer: type[BaseSerializer],
 ) -> None:

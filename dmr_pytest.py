@@ -1,6 +1,9 @@
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 
+from pytest_django.fixtures import SettingsWrapper
+from pytest_django.lazy_django import skip_if_no_django
+
 try:
     import pytest
 except ImportError:  # pragma: no cover
@@ -65,3 +68,13 @@ def dmr_clean_settings() -> Iterator[None]:
     clear_settings_cache()
     yield
     clear_settings_cache()
+
+
+@pytest.fixture
+def settings(dmr_clean_settings: None) -> Iterator[SettingsWrapper]:
+    """Customized version of :function:`pytest_django.fixtures.settings`."""
+    skip_if_no_django()
+
+    wrapper = SettingsWrapper()
+    yield wrapper
+    wrapper.finalize()
