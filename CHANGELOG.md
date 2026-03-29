@@ -168,6 +168,7 @@ To migrate `django-modern-rest` to version `0.4.0` and above, you need to:
 
 - Added `@attrs.define` official support, #706
 - Added `msgpack` parser and renderer, #630
+- Added `JsonLines` or `JsonL` support, #607
 - Added `SSE` support for non-`GET` methods, `Body` component parsing, #736
 - Added `i18n` support for user-facing error messages
   using Django's `gettext_lazy`, #426
@@ -187,6 +188,8 @@ To migrate `django-modern-rest` to version `0.4.0` and above, you need to:
 - Fixed `SSE` controllers `__name__` and `__doc__` generation
   via `@sse` decorator, #700
 - Fixed a bug where `FileMetadata` rendered list of schemas incorrectly, #698
+- Fixed that we were using `typing.get_type_hints` in some places,
+  now always using `typing_extensions.get_type_hints`, #768
 
 ### Misc
 
