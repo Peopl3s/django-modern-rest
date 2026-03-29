@@ -29,12 +29,13 @@ class JsonLinesController(StreamingController[_SerializerT_co]):
 
     .. danger::
 
-        WSGI handers do not support streaming responses, including SSE,
-        by default. You would need to use ASGI handler for SSE endpoints.
+        WSGI handers do not support streaming responses, including JsonLines,
+        by default. You would need to use ASGI handler for streaming endpoints.
 
-        We allow running SSE during ``settings.DEBUG`` builds for debugging.
+        We allow running streaming
+        during ``settings.DEBUG`` builds for debugging.
         But, in production we will raise :exc:`RuntimeError`
-        when WSGI handler will be detected used together with SSE.
+        when WSGI handler will be detected used together with JsonLines.
 
     """
 

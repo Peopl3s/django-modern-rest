@@ -56,21 +56,15 @@ class StreamingController(Controller[_SerializerT_co]):
     """
     Base class for all streaming controllers.
 
-    .. danger::
-
-        WSGI handers do not support streaming responses,
-        by default. You would need to use ASGI handler for streaming endpoints.
-
-        We allow running streaming during
-        ``settings.DEBUG`` builds for debugging.
-        But, in production we will raise :exc:`RuntimeError`
-        when WSGI handler will be detected used together with SSE.
+    It can be used directly, but the most use-cases will be fine
+    with just using the specific streaming protocol.
     """
 
     streaming = True
     endpoint_cls = _StreamingEndpoint
 
     # Customizable attributes for subclasses:
+    streaming_ping_seconds: ClassVar[float | None] = None
     streaming_response_cls: ClassVar[type[StreamingResponse]] = (
         StreamingResponse
     )
@@ -154,3 +148,13 @@ class StreamingController(Controller[_SerializerT_co]):
                 **cookie.as_dict(),
             )
         return streaming_response
+
+    def ping_event(self) -> Any | None:
+        """
+        Return a ping event to be generated if this streaming needs it.
+
+        By default pings are disabled for ``StreamingController`` types.
+        Pings must be explicitly enabled in subclasses.
+
+        If ``streaming_ping_seconds`` is set, this method will be called.
+        """
