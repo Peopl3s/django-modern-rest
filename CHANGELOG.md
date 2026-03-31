@@ -13,6 +13,10 @@ but with a deprecation period.
 This release will focus on better errors, performance, and stability.
 No breaking changes will be made.
 
+### Features
+
+- Provide officail `NamedTuple` support, #774
+
 ### Fixes
 
 - Fixed `StreamingValidator` swallowing errors
