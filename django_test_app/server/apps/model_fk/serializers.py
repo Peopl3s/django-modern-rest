@@ -1,7 +1,9 @@
 import datetime as dt
-from typing import final
+from typing import Annotated, TypeAlias, final
 
 import pydantic
+
+DatabaseId: TypeAlias = Annotated[int, pydantic.Field(gt=0)]
 
 
 @final
@@ -22,5 +24,5 @@ class UserCreateSchema(pydantic.BaseModel):
 
 @final
 class UserSchema(UserCreateSchema):
-    id: int
+    id: DatabaseId
     created_at: dt.datetime
