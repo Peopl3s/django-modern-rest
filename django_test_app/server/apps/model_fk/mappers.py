@@ -1,10 +1,17 @@
 from typing import final
 
 import attrs
+from django.core.paginator import EmptyPage, Paginator
 from django.db.models import QuerySet
 
+from dmr.pagination import Page, Paginated
 from server.apps.model_fk.models import Role, Tag, User
-from server.apps.model_fk.serializers import RoleSchema, TagSchema, UserSchema
+from server.apps.model_fk.serializers import (
+    PageQuery,
+    RoleSchema,
+    TagSchema,
+    UserSchema,
+)
 
 
 @final
@@ -39,6 +46,26 @@ class UserMap:
             tags=self._tag.multiple(user.tags.all()),
         )
 
-    def multiple(self, users: QuerySet[User]) -> list[UserSchema]:
-        # TODO: don't forget about pagination!
-        return [self.single(user) for user in users]
+    def multiple(
+        self,
+        users: QuerySet[User],
+        parsed_query: PageQuery,
+    ) -> Paginated[UserSchema]:
+        # Logic to paginate users:
+        paginator = Paginator(users, parsed_query.page_size)
+        try:
+            object_list = [
+                self.single(user)
+                for user in paginator.page(parsed_query.page).object_list
+            ]
+        except EmptyPage:
+            object_list = []
+        return Paginated(
+            count=paginator.count,
+            num_pages=paginator.num_pages,
+            per_page=paginator.per_page,
+            page=Page(
+                number=parsed_query.page,
+                object_list=object_list,
+            ),
+        )
