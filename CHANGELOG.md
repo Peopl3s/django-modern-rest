@@ -27,6 +27,8 @@ No breaking changes will be made.
 ### Misc
 
 - Added `QuerySet` tutorial, #792
+- Migrated from `poetry` to `uv` for dependency management
+
 
 
 ## Version 0.4.0 (2026-03-29)
