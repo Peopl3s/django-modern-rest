@@ -76,6 +76,8 @@ dmr = "dmr_pytest"
 
 
 [dependency-groups]
+# This is a special group, it has special rules.
+# It is installed in `cibuildwheel` and must be minimal.
 unit-test = [
   "django>=5.2,<6",
   "pytest>=9.0,<10",
@@ -167,6 +169,7 @@ options = { debug_level = "0", opt_level = "3" }
 [tool.cibuildwheel]
 # Build CPython 3.11-3.14 only; skip 32-bit and musl targets.
 build = "cp3{11,12,13,14}-*"
+build-frontend = "uv"
 build-verbosity = 1
 skip = [
   "cp313t-*",
@@ -174,8 +177,10 @@ skip = [
   "*-musllinux_aarch64",
 ]
 
-test-extras = ['pydantic', 'msgspec', 'attrs', 'jwt', 'openapi']
-test-groups = ['unit-test']
+before-test = [
+  'uv export --format requirements.txt --group unit-test --no-group dev --all-extras > _temp.txt',
+  'uv pip install -r _temp.txt',
+]
 test-command = 'pytest {project}/tests/test_unit -o addopts=""'
 
 [tool.cibuildwheel.linux]
