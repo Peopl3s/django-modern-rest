@@ -2,6 +2,7 @@ import json
 from http import HTTPStatus
 
 import pytest
+import yaml
 from django.http import HttpResponse
 from inline_snapshot import snapshot
 
@@ -14,6 +15,7 @@ from dmr.openapi.views import (
     StoplightView,
     SwaggerView,
 )
+from dmr.openapi.views.yaml import OpenAPIYamlView
 from dmr.routing import Router
 from dmr.test import DMRRequestFactory
 
@@ -33,6 +35,24 @@ def test_json_view(dmr_rf: DMRRequestFactory) -> None:
         'info': {'title': 'Django Modern Rest', 'version': '0.1.0'},
         'paths': {},
         'components': {'schemas': {}, 'securitySchemes': {}},
+    })
+
+
+def test_yaml_view(dmr_rf: DMRRequestFactory) -> None:
+    """Ensure that ``OpenAPIYamlView`` returns correct YAML response."""
+    schema = build_schema(Router('', []))
+    request = dmr_rf.get('/whatever/')
+
+    response = OpenAPIYamlView.as_view(schema)(request)
+
+    assert isinstance(response, HttpResponse)
+    assert response.status_code == HTTPStatus.OK
+    assert response['Content-Type'] == 'application/yaml'
+    assert yaml.safe_load(response.content) == snapshot({
+        'components': {'schemas': {}, 'securitySchemes': {}},
+        'info': {'title': 'Django Modern Rest', 'version': '0.1.0'},
+        'openapi': '3.1.0',
+        'paths': {},
     })
 
 

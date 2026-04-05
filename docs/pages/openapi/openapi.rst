@@ -7,6 +7,7 @@ By default, we use OpenAPI ``3.1``, since tooling such as Swagger, Scalar,
 and Redoc does not yet fully support the latest specification.
 You can track the `current progress here <https://github.com/wemake-services/django-modern-rest/issues/519>`_.
 
+
 Setting up OpenAPI views
 ------------------------
 
@@ -21,6 +22,13 @@ We support:
 - `Stoplight Elements <https://github.com/stoplightio/elements>`_
   with :class:`~dmr.openapi.views.StoplightView`
 - ``openapi.json`` with :class:`~dmr.openapi.views.OpenAPIJsonView`
+- ``openapi.yaml`` with :class:`~dmr.openapi.views.yaml.OpenAPIYamlView`
+  when ``[openapi]`` extra is installed
+
+.. important::
+
+  We always recommend installing ``'django-modern-rest[openapi]'``
+  extra when working with OpenAPI.
 
 Here's how it works:
 
