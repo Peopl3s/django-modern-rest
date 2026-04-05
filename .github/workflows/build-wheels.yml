@@ -85,7 +85,7 @@ jobs:
           name: ${{ matrix.only }}-mypyc-wheels
           path: wheelhouse/
 
-  build_pure:
+  build-pure:
     name: Pure-Python wheel + sdist
     runs-on: ubuntu-latest
 
@@ -112,7 +112,7 @@ jobs:
 
   publish-mypyc:
     if: github.event_name == 'release'
-    needs: mypyc
+    needs: [mypyc, build-pure]
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -127,14 +127,14 @@ jobs:
           merge-multiple: true
 
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@v1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           packages-dir: wheelhouse/
           verbose: true
 
   publish-pure:
     if: github.event_name == 'release'
-    needs: build_pure
+    needs: [mypyc, build-pure]
     runs-on: ubuntu-latest
     environment:
       name: release
@@ -148,6 +148,6 @@ jobs:
           path: dist/
 
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@v1
+        uses: pypa/gh-action-pypi-publish@v1.13.0
         with:
           verbose: true
