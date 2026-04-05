@@ -258,6 +258,7 @@ class EndpointMetadataBuilder:  # noqa: WPS214
             no_validate_http_spec=self._build_no_validate_http_spec(),
             allowed_http_methods=allowed_http_methods,
             semantic_responses=self._build_semantic_responses(),
+            exclude_semantic_responses=self._build_exclude_semantic_responses(),
             validate_events=self._build_validate_events(),
             summary=summary,
             description=description,
@@ -309,6 +310,7 @@ class EndpointMetadataBuilder:  # noqa: WPS214
             no_validate_http_spec=self._build_no_validate_http_spec(),
             allowed_http_methods=allowed_http_methods,
             semantic_responses=self._build_semantic_responses(),
+            exclude_semantic_responses=self._build_exclude_semantic_responses(),
             validate_events=self._build_validate_events(),
             summary=summary,
             description=description,
@@ -355,6 +357,7 @@ class EndpointMetadataBuilder:  # noqa: WPS214
             no_validate_http_spec=self._build_no_validate_http_spec(),
             allowed_http_methods=allowed_http_methods,
             semantic_responses=self._build_semantic_responses(),
+            exclude_semantic_responses=self._build_exclude_semantic_responses(),
             validate_events=self._build_validate_events(),
             summary=summary,
             description=description,
@@ -515,6 +518,18 @@ class EndpointMetadataBuilder:  # noqa: WPS214
         if self.controller_cls.semantic_responses is not None:
             return self.controller_cls.semantic_responses
         return resolve_setting(Settings.semantic_responses)  # type: ignore[no-any-return]
+
+    def _build_exclude_semantic_responses(self) -> Set[int]:
+        payload_excluded_responses: Set[int] = (
+            (self.payload.exclude_semantic_responses or set())
+            if self.payload
+            else set()
+        )
+        return frozenset((
+            *payload_excluded_responses,
+            *self.controller_cls.exclude_semantic_responses,
+            *resolve_setting(Settings.no_validate_http_spec),
+        ))
 
     def _build_description(self) -> tuple[str | None, str | None]:
         """
