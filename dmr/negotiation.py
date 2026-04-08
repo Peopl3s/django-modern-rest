@@ -262,6 +262,8 @@ class ContentType(enum.StrEnum):
         msgpack: ``'application/msgpack'`` format.
         event_stream: ``'text/event-stream'`` format for SSE streaming.
         jsonl: ``'application/jsonl'`` format for JSON Lines streaming.
+        json_problem_details: ``'application/problem+json'`` format
+            for RFC 9457.
 
     """
 
@@ -272,10 +274,11 @@ class ContentType(enum.StrEnum):
     msgpack = 'application/msgpack'
     event_stream = 'text/event-stream'
     jsonl = 'application/jsonl'
+    json_problem_details = 'application/problem+json'
 
 
 def conditional_type(
-    mapping: Mapping[ContentType, Any],
+    mapping: Mapping[str | ContentType, Any],
 ) -> _ConditionalType:
     """
     Create conditional validation for different content types.
@@ -290,7 +293,14 @@ def conditional_type(
             'conditional_type must be called with a mapping of length >= 2, '
             f'got {mapping}',
         )
-    return _ConditionalType(tuple(mapping.items()))
+    return _ConditionalType(
+        tuple(
+            {
+                str(mapping_key): mapping_value
+                for mapping_key, mapping_value in mapping.items()
+            }.items(),
+        ),
+    )
 
 
 def get_conditional_types(
@@ -307,3 +317,11 @@ def get_conditional_types(
     if metadata:
         return metadata.computed
     return None
+
+
+def accepts(request: HttpRequest, content_type: str) -> bool:
+    """Determine whether this *request* accepts a given *content_type*."""
+    renderer = request_renderer(request)
+    # TODO: refactor after
+    # https://github.com/wemake-services/django-modern-rest/pull/854
+    return renderer is not None and renderer.content_type == content_type
