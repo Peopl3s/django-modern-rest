@@ -39,6 +39,10 @@
       :alt: DeepWiki
       :target: https://deepwiki.com/wemake-services/django-modern-rest
 
+   .. image:: https://img.shields.io/badge/chat-join-blue?logo=telegram
+      :alt: Telegram Chat
+      :target: https://t.me/django_modern_rest
+
 
 .. rst-class:: lead
 
