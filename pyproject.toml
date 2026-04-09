@@ -101,9 +101,14 @@ unit-test = [
   "polyfactory>=3.2,<4",
   "xmltodict-rs>=0.13,<0.14",
 ]
+integration = [
+  "tracecov>=0.19,<0.20",
+  "pytest-codspeed>=4.3,<5",
+]
 dev = [
   { include-group = "unit-test" },
-  "django-stubs[compatible-mypy]>=6.0,<6.0.3",
+  { include-group = "integration" },
+  "django-stubs[compatible-mypy]>=6.0,<6.0.2",
   "types-docutils>=0.22,<0.23",
   "types-setuptools>=82,<83",
   "types-pyyaml>=6.0,<7",
@@ -119,10 +124,6 @@ dev = [
   "httpx>=0.28,<0.29",
   "punq>=0.7,<0.8",
   "phonenumbers>=9.0,<10",
-]
-integration = [
-  "tracecov>=0.19,<0.20",
-  "pytest-codspeed>=4.3,<5",
 ]
 build = [
   "cibuildwheel==3.4.1",
@@ -143,7 +144,7 @@ docs = [
   "docutils>=0.22,<0.23",
   # Needed for our extension:
   "uvicorn>=0.41,<0.43",
-  "zapros==0.5",
+  "zapros>=0.5,<0.6",
   # Needed for examples:
   "xmltodict-rs>=0.13,<0.14",
   "django-mantle>=26.6,<27",
