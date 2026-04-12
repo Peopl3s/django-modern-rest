@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from dmr.security.base import AsyncAuth, SyncAuth
     from dmr.serializer import BaseSerializer
     from dmr.settings import HttpSpec
+    from dmr.throttling import AsyncThrottle, SyncThrottle
 
 ComponentParserSpec: TypeAlias = tuple['ComponentParser', Any, tuple[Any, ...]]
 
@@ -259,10 +260,9 @@ class ResponseSpecProvider:
 
     __slots__ = ()
 
-    @classmethod
     @abstractmethod
     def provide_response_specs(
-        cls,
+        self,
         metadata: 'EndpointMetadata',
         controller_cls: type['Controller[BaseSerializer]'],
         existing_responses: Mapping[HTTPStatus, ResponseSpec],
@@ -275,9 +275,8 @@ class ResponseSpecProvider:
         """
         raise NotImplementedError
 
-    @classmethod
     def _add_new_response(
-        cls,
+        self,
         response: ResponseSpec,
         existing_responses: Mapping[HTTPStatus, ResponseSpec],
     ) -> list[ResponseSpec]:
@@ -324,6 +323,12 @@ class EndpointMetadata:
             of :class:`dmr.security.AsyncAuth`.
             When set it to ``None`` it means that auth
             is disabled for this endpoint.
+        throttling: Sequence of throttle instances to be used for this endpoint.
+            Sync endpoints must use instances
+            of :class:`dmr.throttling.SyncThrottle`.
+            Async endpoints must use instances
+            of :class:`dmr.throttling.AsyncThrottle`.
+            Set it to ``None`` to disable throttling of this endpoint.
         no_validate_http_spec: Set of checks that user wants
             to disable for validation in this endpoint.
         allowed_http_methods: Set of extra HTTP methods
@@ -378,6 +383,12 @@ class EndpointMetadata:
     parsers: dict[str, 'Parser']
     renderers: dict[str, 'Renderer']
     auth: list['SyncAuth | AsyncAuth'] | None
+
+    # First line of throttling:
+    throttling_before_auth: tuple['SyncThrottle | AsyncThrottle', ...] | None
+    # Second line of throttling:
+    throttling_after_auth: tuple['SyncThrottle | AsyncThrottle', ...] | None
+
     no_validate_http_spec: frozenset['HttpSpec']
     allowed_http_methods: frozenset[str]
     semantic_responses: bool
@@ -439,7 +450,7 @@ class EndpointMetadata:
             for response in all_responses
         ]
 
-    def response_spec_providers(self) -> list[type[ResponseSpecProvider]]:
+    def response_spec_providers(self) -> list[ResponseSpecProvider]:
         """
         Determine: from where we should collect response schemas.
 
@@ -459,10 +470,12 @@ class EndpointMetadata:
             return []
 
         return [
-            *[type(spec[0]) for spec in self.component_parsers],
-            *[type(parser) for parser in self.parsers.values()],
-            *[type(renderer) for renderer in self.renderers.values()],
-            *[type(auth) for auth in (self.auth or [])],
+            *[spec[0] for spec in self.component_parsers],
+            *self.parsers.values(),
+            *self.renderers.values(),
+            *(self.auth or []),
+            *(self.throttling_before_auth or []),
+            *(self.throttling_after_auth or []),
         ]
 
 
