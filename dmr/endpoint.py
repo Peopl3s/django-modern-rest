@@ -49,6 +49,7 @@ from dmr.validation import (
 if TYPE_CHECKING:
     from dmr.controller import Controller
     from dmr.openapi.core.context import OpenAPIContext
+    from dmr.routing import Router
     from dmr.validation.response import ValidatedModification
 
 
@@ -264,6 +265,7 @@ class Endpoint:  # noqa: WPS214
         controller_name: str,
         serializer: type[BaseSerializer],
         context: 'OpenAPIContext',
+        router: 'Router',
     ) -> Operation:
         """Build an OpenAPI Operation from an endpoint."""
         operation_id = self.get_operation_id(
@@ -283,11 +285,16 @@ class Endpoint:  # noqa: WPS214
             serializer,
         )
 
+        tags = [
+            *router.tags,
+            *(self.metadata.tags or []),
+        ]
+
         return Operation(
-            tags=self.metadata.tags,
+            tags=tags or None,
             summary=self.metadata.summary,
             description=self.metadata.description,
-            deprecated=self.metadata.deprecated,
+            deprecated=self.metadata.deprecated or router.deprecated,
             security=security,
             external_docs=self.metadata.external_docs,
             servers=self.metadata.servers,

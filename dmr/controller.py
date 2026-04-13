@@ -1,6 +1,14 @@
 from collections.abc import Callable, Mapping, Sequence, Set
 from http import HTTPMethod, HTTPStatus
-from typing import Any, ClassVar, Final, Generic, TypeAlias, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    ClassVar,
+    Final,
+    Generic,
+    TypeAlias,
+    TypeVar,
+)
 
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.urls import URLPattern
@@ -28,6 +36,9 @@ from dmr.settings import HttpSpec
 from dmr.throttling import AsyncThrottle, SyncThrottle
 from dmr.types import AnnotationsContext, infer_type_args
 from dmr.validation import ControllerValidator, SettingsValidator
+
+if TYPE_CHECKING:
+    from dmr.routing import Router
 
 _METHOD_NOT_ALLOWED_MSG: Final = _(
     'Method {method} is not allowed, allowed: {allowed}',
@@ -497,6 +508,7 @@ class Controller(Generic[_SerializerT_co], View):  # noqa: WPS214
         path: str,
         pattern: URLPattern,
         context: OpenAPIContext,
+        router: 'Router',
     ) -> PathItem:
         """Generate OpenAPI spec for path items."""
         operations: dict[str, Any] = {
@@ -506,6 +518,7 @@ class Controller(Generic[_SerializerT_co], View):  # noqa: WPS214
                 cls.__qualname__,
                 cls.serializer,
                 context,
+                router,
             )
             for method, endpoint in cls.api_endpoints.items()
         }
