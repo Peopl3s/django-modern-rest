@@ -77,6 +77,11 @@ Apply this change to the code that uses `django-modern-rest`:
 - Fixed missing `request.auser()` after `JWTAsyncAuth`, #884
 - Fixed `ParameterMetadata` missing `__slots__`, #890
 - Fixed `SSEvent` missing `__slots__`, #901
+- Fixed `SSE` protocol typing, #894
+- Fixed a bug when we were treating controllers with
+  no `api_endpoints` as non-abstract, #894
+- Fixed a bug when you were not able to subclass
+  a controller with a serializer, #873
 
 ### Misc
 

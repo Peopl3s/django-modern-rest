@@ -14,11 +14,11 @@ class SSE(Protocol):
     we encourage them to create their own event ADT and models.
     """
 
-    data: Any = None
-    event: Any = None
-    id: Any = None
-    retry: Any = None
-    comment: Any = None
+    data: Any
+    event: str | None
+    id: int | str | None
+    retry: int | None
+    comment: str | None
 
     @property
     def should_serialize_data(self) -> bool:
