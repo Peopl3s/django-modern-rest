@@ -1,6 +1,6 @@
 import abc
 import dataclasses
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import override
 
@@ -81,3 +81,40 @@ class RemoteAddr(BaseThrottleCacheKey):
     ) -> str | None:
         """Return ``REMOTE_ADDR`` which is a user's IP address, if it exists."""
         return controller.request.META.get('REMOTE_ADDR')
+
+
+@dataclasses.dataclass(slots=True, frozen=True, kw_only=True)
+class UserPk(BaseThrottleCacheKey):
+    """
+    Uses ``request.user.pk`` as a cache key.
+
+    Returns ``None`` for users that should be excluded
+    from throttling checks or when ``pk`` is not set.
+    """
+
+    exclude_superuser: bool = True
+    exclude_stuff: bool = True
+    name: str = 'UserPk'  # pyright: ignore[reportIncompatibleMethodOverride]
+
+    @override
+    def __call__(
+        self,
+        endpoint: 'Endpoint',
+        controller: 'Controller[BaseSerializer]',
+    ) -> str | None:
+        """Return ``request.user.pk`` when user should be throttled."""
+        user = controller.request.user
+        is_superuser = getattr(user, 'is_superuser', False)
+        is_staff = getattr(user, 'is_staff', False)
+        user_pk = getattr(user, 'pk', None)
+        is_excluded = (self.exclude_superuser and is_superuser) or (
+            self.exclude_stuff and is_staff
+        )
+        if is_excluded or user_pk is None:
+            return None
+        return str(user_pk)
+
+    @property
+    @override
+    def runs_before_auth(self) -> Literal[False]:
+        return False

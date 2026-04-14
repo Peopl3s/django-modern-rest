@@ -174,6 +174,7 @@ for example, from paid or stuff users.
 Full list of cache keys that we ship in ``django-modern-rest``:
 
 - :class:`~dmr.throttling.cache_keys.RemoteAddr`, default
+- :class:`~dmr.throttling.cache_keys.UserPk`, based on ``request.user``
 
 When throttling is executed
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -411,6 +412,9 @@ Cache keys
   :members:
 
 .. autoclass:: dmr.throttling.cache_keys.RemoteAddr
+  :members:
+
+.. autoclass:: dmr.throttling.cache_keys.UserPk
   :members:
 
 Headers
