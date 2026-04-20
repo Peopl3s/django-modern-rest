@@ -3,11 +3,20 @@ from typing import TYPE_CHECKING, Any, ClassVar, TypeVar
 
 from django.test import AsyncClient, AsyncRequestFactory, Client, RequestFactory
 
+from dmr.internal.json import json_dump
+
 _ThingT = TypeVar('_ThingT')
 
 
 class _DMRMixin:  # noqa: WPS338
     default_content_type: ClassVar[str] = 'application/json'
+
+    def _encode_json(self, data: Any, content_type: str) -> Any:
+        should_encode = (
+            content_type == self.default_content_type
+            and not isinstance(data, (str, bytes))
+        )
+        return json_dump(data) if should_encode else data
 
     if TYPE_CHECKING:  # noqa: WPS604  # pragma: no cover
 

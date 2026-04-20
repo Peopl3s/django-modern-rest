@@ -73,3 +73,44 @@ class NativeJson:
     def loads(cls, to_deserialize: 'Raw', /) -> Any:
         """Internal method to load json as a simple object."""
         return json.loads(to_deserialize)
+
+
+def _wrap_bytes_dumper(
+    dumper: Callable[[Any], bytes],
+) -> Callable[[Any], str]:
+    """
+    Wrap a bytes-returning JSON dumper to always return a UTF-8 string.
+
+    This is used to normalize different JSON backends (e.g. `msgspec`)
+    to a single `str`-based interface expected by `json_dump`.
+    """
+
+    def wrapper(data: Any) -> str:
+        return dumper(data).decode('utf-8')
+
+    return wrapper
+
+
+_compact_json_dumps = _wrap_bytes_dumper(NativeJson.dumps)
+
+
+try:
+    import msgspec
+except ImportError:  # pragma: no cover
+    _json_dumps: Callable[[Any], str] = _compact_json_dumps
+else:
+    _json_dumps = _wrap_bytes_dumper(msgspec.json.encode)
+
+
+def json_dump(schema: Any) -> str:
+    """
+    Serialize a JSON-serializable object to a string.
+
+    Args:
+        schema: JSON-serializable object to serialize.
+
+    Returns:
+        JSON string representation of the schema.
+
+    """
+    return _json_dumps(schema)
