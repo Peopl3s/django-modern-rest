@@ -20,6 +20,8 @@ of requirements for an API to count as public.
 
 ## WIP
 
+- Added `accepted_header` as a faster alternative to `django`'s `HttpRequest.accepts`, #854
+
 ### Features
 
 - *Breaking*: Renamed `APIRedirectError` to `RedirectTo`
