@@ -163,6 +163,12 @@ def test_strict_audience_single_value() -> None:
             '',
             '1',
         ),
+        # RS256 expects a PEM private key; passing an HMAC secret raises
+        # jwt.exceptions.InvalidKeyError (a PyJWTError, not a DecodeError).
+        (
+            'RS256',
+            'hmac-secret',
+        ),
     ],
 )
 def test_encode_validation(
