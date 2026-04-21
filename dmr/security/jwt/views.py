@@ -8,6 +8,7 @@ from typing import Any, ClassVar, Generic, Literal, TypeAlias, TypeVar
 from django.conf import settings
 from django.contrib.auth import aauthenticate, authenticate
 from django.contrib.auth.base_user import AbstractBaseUser
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import HttpRequest
 from typing_extensions import TypedDict
 
@@ -19,6 +20,7 @@ from dmr.security.jwt.token import JWToken
 from dmr.serializer import BaseSerializer
 
 _ObtainTokensT = TypeVar('_ObtainTokensT', bound=Mapping[str, Any])
+_RefreshTokensT = TypeVar('_RefreshTokensT', bound=Mapping[str, Any])
 _TokensResponseT = TypeVar('_TokensResponseT')
 _SerializerT = TypeVar(
     '_SerializerT',
@@ -246,4 +248,170 @@ class ObtainTokensAsyncController(
     @abstractmethod
     async def make_api_response(self) -> _TokensResponseT:
         """Abstract method to create a response payload."""
+        raise NotImplementedError
+
+
+class RefreshTokenPayload(TypedDict):
+    """Default request body type for the refresh token endpoint."""
+
+    refresh_token: str
+
+
+class _BaseRefreshTokenController(_BaseTokenController[_SerializerT]):
+    jwt_user_id_field: ClassVar[str] = 'pk'
+
+    def _decode_and_validate_refresh_token(self, encoded_token: str) -> JWToken:
+        token = self.jwt_token_cls.decode(
+            encoded_token=encoded_token,
+            secret=self.jwt_secret or settings.SECRET_KEY,
+            algorithm=self.jwt_algorithm,
+            accepted_audiences=self.jwt_audiences,
+            accepted_issuers=self.jwt_issuer,
+        )
+        if token.extras.get('type') != 'refresh':
+            raise NotAuthenticatedError
+        return token
+
+
+class RefreshTokenSyncController(
+    _BaseRefreshTokenController[_SerializerT],
+    Generic[_SerializerT, _RefreshTokensT, _TokensResponseT],
+):
+    """
+    Sync controller to refresh access and refresh tokens.
+
+    Accepts a refresh token in the request body, validates it,
+    loads the user, and calls :meth:`make_api_response` to build the response.
+
+    Attributes:
+        jwt_user_id_field: User model field matched against ``token.sub``.
+            Defaults to ``'pk'``.
+
+    """
+
+    responses = (
+        ResponseSpec(
+            return_type=ErrorModel,
+            status_code=HTTPStatus.UNAUTHORIZED,
+        ),
+    )
+
+    @modify(status_code=HTTPStatus.OK)
+    def post(self, parsed_body: Body[_RefreshTokensT]) -> _TokensResponseT:
+        """Refresh tokens on POST."""
+        return self.refresh(parsed_body)
+
+    def refresh(self, parsed_body: _RefreshTokensT) -> _TokensResponseT:
+        """Validate the refresh token, load user, and return new tokens."""
+        from django.contrib.auth import get_user_model  # noqa: PLC0415
+
+        token = self._decode_and_validate_refresh_token(
+            self.convert_refresh_payload(parsed_body),
+        )
+        try:
+            user = get_user_model().objects.get(**{
+                self.jwt_user_id_field: token.sub,
+            })
+        except ObjectDoesNotExist:
+            raise NotAuthenticatedError from None
+        self.check_auth(user)
+        self.set_request_attrs(self.request, user)
+        return self.make_api_response()
+
+    def check_auth(self, user: Any) -> None:
+        """Run extra auth checks, raise if something is wrong."""
+        if not user.is_active:
+            raise NotAuthenticatedError
+
+    def set_request_attrs(
+        self,
+        request: HttpRequest,
+        user: AbstractBaseUser,
+    ) -> None:
+        """Apply authed user to the current request."""
+        set_request_attrs(request, user)
+
+    @abstractmethod
+    def convert_refresh_payload(self, payload: _RefreshTokensT) -> str:
+        """Extract the refresh token string from the request payload."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def make_api_response(self) -> _TokensResponseT:
+        """Build the token pair response after a successful refresh."""
+        raise NotImplementedError
+
+
+class RefreshTokenAsyncController(
+    _BaseRefreshTokenController[_SerializerT],
+    Generic[_SerializerT, _RefreshTokensT, _TokensResponseT],
+):
+    """
+    Async controller to refresh access and refresh tokens.
+
+    Accepts a refresh token in the request body, validates it,
+    loads the user, and calls :meth:`make_api_response` to build the response.
+
+    Attributes:
+        jwt_user_id_field: User model field matched against ``token.sub``.
+            Defaults to ``'pk'``.
+
+    """
+
+    responses = (
+        ResponseSpec(
+            return_type=ErrorModel,
+            status_code=HTTPStatus.UNAUTHORIZED,
+        ),
+    )
+
+    @modify(status_code=HTTPStatus.OK)
+    async def post(
+        self,
+        parsed_body: Body[_RefreshTokensT],
+    ) -> _TokensResponseT:
+        """Refresh tokens on POST."""
+        return await self.refresh(parsed_body)
+
+    async def refresh(
+        self,
+        parsed_body: _RefreshTokensT,
+    ) -> _TokensResponseT:
+        """Validate the refresh token, load user, and return new tokens."""
+        from django.contrib.auth import get_user_model  # noqa: PLC0415
+
+        token = self._decode_and_validate_refresh_token(
+            await self.convert_refresh_payload(parsed_body),
+        )
+        try:
+            user = await get_user_model().objects.aget(**{
+                self.jwt_user_id_field: token.sub,
+            })
+        except ObjectDoesNotExist:
+            raise NotAuthenticatedError from None
+        await self.check_auth(user)
+        await self.set_request_attrs(self.request, user)
+        return await self.make_api_response()
+
+    async def check_auth(self, user: Any) -> None:
+        """Run extra auth checks, raise if something is wrong."""
+        if not user.is_active:
+            raise NotAuthenticatedError
+
+    async def set_request_attrs(
+        self,
+        request: HttpRequest,
+        user: AbstractBaseUser,
+    ) -> None:
+        """Apply authed user to the current request."""
+        set_request_attrs(request, user)
+
+    @abstractmethod
+    async def convert_refresh_payload(self, payload: _RefreshTokensT) -> str:
+        """Extract the refresh token string from the request payload."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def make_api_response(self) -> _TokensResponseT:
+        """Build the token pair response after a successful refresh."""
         raise NotImplementedError
