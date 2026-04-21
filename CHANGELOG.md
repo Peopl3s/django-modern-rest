@@ -37,6 +37,9 @@ of requirements for an API to count as public.
   renderer, #711
 - Fixed `collectstatic` failure when using `ManifestStaticFilesStorage`, #927
 - Fixed `datetime` validation when using `.to_response`, #938
+- Fixed a bug that `ObtainTokensAsyncController` was not setting
+  the `request.auser` attribute, #953
+- Fixed a bug that `JWTSyncAuth` was not setting `request.auser`, #953
 
 ### Misc
 
