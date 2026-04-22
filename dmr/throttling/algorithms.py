@@ -194,15 +194,22 @@ class SimpleRate(BaseThrottleAlgorithm):
         backend: 'BaseThrottleBackend',
         cache_key: str,
     ) -> None:
-        result = backend.incr_with_expiry(
-            endpoint, controller, cache_key, throttle.duration_in_seconds,
+        incr_result = backend.incr_with_expiry(
+            endpoint,
+            controller,
+            cache_key,
+            throttle.duration_in_seconds,
         )
-        if result is None:
+        if incr_result is None:
             super().check_and_record(
-                endpoint, controller, throttle, backend, cache_key,
+                endpoint,
+                controller,
+                throttle,
+                backend,
+                cache_key,
             )
             return
-        count, window_expiry = result
+        count, window_expiry = incr_result
         if count > throttle.max_requests:
             raise TooManyRequestsError(
                 headers=self._report_usage(
@@ -229,15 +236,22 @@ class SimpleRate(BaseThrottleAlgorithm):
         backend: 'BaseThrottleBackend',
         cache_key: str,
     ) -> None:
-        result = await backend.aincr_with_expiry(
-            endpoint, controller, cache_key, throttle.duration_in_seconds,
+        incr_result = await backend.aincr_with_expiry(
+            endpoint,
+            controller,
+            cache_key,
+            throttle.duration_in_seconds,
         )
-        if result is None:
+        if incr_result is None:
             await super().acheck_and_record(
-                endpoint, controller, throttle, backend, cache_key,
+                endpoint,
+                controller,
+                throttle,
+                backend,
+                cache_key,
             )
             return
-        count, window_expiry = result
+        count, window_expiry = incr_result
         if count > throttle.max_requests:
             raise TooManyRequestsError(
                 headers=self._report_usage(
@@ -245,7 +259,8 @@ class SimpleRate(BaseThrottleAlgorithm):
                     controller,
                     throttle,
                     CachedRateLimit(
-                        # See sync check_and_record for the history[0] convention.
+                        # See sync check_and_record for the history[0]
+                        # convention.
                         history=[throttle.max_requests],
                         time=window_expiry,
                     ),

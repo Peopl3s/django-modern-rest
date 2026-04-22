@@ -3,7 +3,7 @@ import json
 import threading
 import time
 from http import HTTPStatus
-from typing import Final
+from typing import Any, Final
 from unittest.mock import MagicMock
 
 import pytest
@@ -30,14 +30,21 @@ def test_incr_with_expiry_starts_at_one(freezer: FrozenDateTimeFactory) -> None:
     backend = DjangoCache()
     now = int(time.time())
 
-    count, window_expiry = backend.incr_with_expiry(MagicMock(), MagicMock(), 'k', 60)
+    count, window_expiry = backend.incr_with_expiry(
+        MagicMock(),
+        MagicMock(),
+        'k',
+        60,
+    )
 
     assert count == 1
     assert window_expiry == now + 60
 
 
-def test_incr_with_expiry_increments_within_window(freezer: FrozenDateTimeFactory) -> None:
-    """Successive calls within the same window produce 1, 2, 3, …"""
+def test_incr_with_expiry_increments_within_window(  # noqa: WPS118
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    """Successive calls within the same window produce 1, 2, 3, 4."""
     backend = DjangoCache()
 
     counts = [
@@ -48,27 +55,31 @@ def test_incr_with_expiry_increments_within_window(freezer: FrozenDateTimeFactor
     assert counts == [1, 2, 3, 4]
 
 
-def test_incr_with_expiry_window_expiry_is_stable(freezer: FrozenDateTimeFactory) -> None:
+def test_incr_with_expiry_window_expiry_is_stable(
+    freezer: FrozenDateTimeFactory,
+) -> None:
     """All calls within the same window return the same expiry timestamp."""
     backend = DjangoCache()
     now = int(time.time())
 
     exps = [
-        backend.incr_with_expiry(MagicMock(), MagicMock(), 'k', 30)[1]
+        backend.incr_with_expiry(MagicMock(), MagicMock(), 'k', 30)[1]  # noqa: WPS432
         for _ in range(3)
     ]
 
-    assert exps == [now + 30, now + 30, now + 30]
+    assert exps == [now + 30, now + 30, now + 30]  # noqa: WPS432
 
 
-def test_incr_with_expiry_resets_after_ttl(freezer: FrozenDateTimeFactory) -> None:
+def test_incr_with_expiry_resets_after_ttl(
+    freezer: FrozenDateTimeFactory,
+) -> None:
     """After the TTL elapses, the next call starts a fresh window at count=1."""
     backend = DjangoCache()
 
     for _ in range(5):
         backend.incr_with_expiry(MagicMock(), MagicMock(), 'k', 60)
 
-    freezer.tick(delta=61)
+    freezer.tick(delta=61)  # noqa: WPS432
 
     count, _ = backend.incr_with_expiry(MagicMock(), MagicMock(), 'k', 60)
     assert count == 1
@@ -93,16 +104,17 @@ def test_allows_exactly_max_requests_sync(
     freezer: FrozenDateTimeFactory,
 ) -> None:
     """Exactly max_requests are served; the very next one is rate-limited."""
-    for n in range(_LIMIT):
+    for req_num in range(1, _LIMIT + 1):
         assert (
-            _SyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
-        ), f'request {n + 1} of {_LIMIT} was unexpectedly blocked'
+            _SyncController.as_view()(dmr_rf.get('/')).status_code
+            == HTTPStatus.OK
+        ), f'request {req_num} of {_LIMIT} was unexpectedly blocked'
 
     response = _SyncController.as_view()(dmr_rf.get('/'))
     assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
     assert response.headers['X-RateLimit-Limit'] == str(_LIMIT)
     assert response.headers['X-RateLimit-Remaining'] == '0'
-    assert json.loads(response.content) == snapshot({
+    assert json.loads(response.content) == snapshot({  # type: ignore[attr-defined]
         'detail': [{'msg': 'Too many requests', 'type': 'ratelimit'}],
     })
 
@@ -112,13 +124,13 @@ async def test_allows_exactly_max_requests_async(
     dmr_async_rf: DMRAsyncRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Exactly max_requests are served; the very next one is rate-limited (async)."""
-    for n in range(_LIMIT):
+    """Exactly max_requests served; the (N+1)-th is rate-limited (async)."""
+    for req_num in range(1, _LIMIT + 1):
         response = await dmr_async_rf.wrap(
             _AsyncController.as_view()(dmr_async_rf.get('/')),
         )
         assert response.status_code == HTTPStatus.OK, (
-            f'request {n + 1} of {_LIMIT} was unexpectedly blocked'
+            f'request {req_num} of {_LIMIT} was unexpectedly blocked'
         )
 
     response = await dmr_async_rf.wrap(
@@ -127,7 +139,7 @@ async def test_allows_exactly_max_requests_async(
     assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
     assert response.headers['X-RateLimit-Limit'] == str(_LIMIT)
     assert response.headers['X-RateLimit-Remaining'] == '0'
-    assert json.loads(response.content) == snapshot({
+    assert json.loads(response.content) == snapshot({  # type: ignore[attr-defined]
         'detail': [{'msg': 'Too many requests', 'type': 'ratelimit'}],
     })
 
@@ -136,15 +148,23 @@ def test_window_resets_after_ttl_sync(
     dmr_rf: DMRRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """After the rate window expires, the counter resets and requests are allowed again."""
+    """After TTL expires, counter resets and requests are allowed again."""
     for _ in range(_LIMIT):
-        assert _SyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+        assert (
+            _SyncController.as_view()(dmr_rf.get('/')).status_code
+            == HTTPStatus.OK
+        )
 
-    assert _SyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.TOO_MANY_REQUESTS
+    assert (
+        _SyncController.as_view()(dmr_rf.get('/')).status_code
+        == HTTPStatus.TOO_MANY_REQUESTS
+    )
 
     freezer.tick(delta=int(Rate.second))
 
-    assert _SyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+    assert (
+        _SyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+    )
 
 
 @pytest.mark.asyncio
@@ -152,7 +172,7 @@ async def test_window_resets_after_ttl_async(
     dmr_async_rf: DMRAsyncRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """After the rate window expires, the counter resets and requests are allowed again (async)."""
+    """Counter resets after TTL expires; requests resume (async)."""
     for _ in range(_LIMIT):
         response = await dmr_async_rf.wrap(
             _AsyncController.as_view()(dmr_async_rf.get('/')),
@@ -173,26 +193,42 @@ async def test_window_resets_after_ttl_async(
 
 
 class _NonAtomicBackend(DjangoCache):
-    """DjangoCache variant that opts out of atomic increment, forcing the non-atomic path."""
+    """DjangoCache that opts out of atomic increment (non-atomic path)."""
 
     @override
-    def incr_with_expiry(self, endpoint, controller, cache_key, ttl_seconds):  # type: ignore[override]
-        return None
+    def incr_with_expiry(  # type: ignore[override]  # noqa: WPS324
+        self,
+        endpoint: Any,
+        controller: Any,
+        cache_key: str,
+        ttl_seconds: int,
+    ) -> tuple[int, int] | None:
+        return None  # noqa: WPS324
 
     @override
-    async def aincr_with_expiry(self, endpoint, controller, cache_key, ttl_seconds):  # type: ignore[override]
-        return None
+    async def aincr_with_expiry(  # type: ignore[override]  # noqa: WPS324
+        self,
+        endpoint: Any,
+        controller: Any,
+        cache_key: str,
+        ttl_seconds: int,
+    ) -> tuple[int, int] | None:
+        return None  # noqa: WPS324
 
 
 class _NonAtomicSyncController(Controller[PydanticFastSerializer]):
-    throttling = [SyncThrottle(_LIMIT, Rate.second, backend=_NonAtomicBackend())]
+    throttling = [
+        SyncThrottle(_LIMIT, Rate.second, backend=_NonAtomicBackend()),
+    ]
 
     def get(self) -> str:
         return 'ok'
 
 
 class _NonAtomicAsyncController(Controller[PydanticFastSerializer]):
-    throttling = [AsyncThrottle(_LIMIT, Rate.second, backend=_NonAtomicBackend())]
+    throttling = [
+        AsyncThrottle(_LIMIT, Rate.second, backend=_NonAtomicBackend()),
+    ]
 
     async def get(self) -> str:
         return 'ok'
@@ -202,11 +238,12 @@ def test_non_atomic_fallback_enforces_limit_sync(
     dmr_rf: DMRRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Rate limiting is correct when the backend opts out of atomic increment (sync)."""
-    for n in range(_LIMIT):
+    """Rate limit enforced on the non-atomic fallback path (sync)."""
+    for req_num in range(1, _LIMIT + 1):
         assert (
-            _NonAtomicSyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
-        ), f'request {n + 1} was unexpectedly blocked'
+            _NonAtomicSyncController.as_view()(dmr_rf.get('/')).status_code
+            == HTTPStatus.OK
+        ), f'request {req_num} was unexpectedly blocked'
 
     assert (
         _NonAtomicSyncController.as_view()(dmr_rf.get('/')).status_code
@@ -215,7 +252,10 @@ def test_non_atomic_fallback_enforces_limit_sync(
 
     freezer.tick(delta=int(Rate.second))
 
-    assert _NonAtomicSyncController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+    assert (
+        _NonAtomicSyncController.as_view()(dmr_rf.get('/')).status_code
+        == HTTPStatus.OK
+    )
 
 
 @pytest.mark.asyncio
@@ -223,12 +263,14 @@ async def test_non_atomic_fallback_enforces_limit_async(
     dmr_async_rf: DMRAsyncRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """Rate limiting is correct when the backend opts out of atomic increment (async)."""
-    for n in range(_LIMIT):
+    """Rate limit enforced on the non-atomic fallback path (async)."""
+    for req_num in range(1, _LIMIT + 1):
         response = await dmr_async_rf.wrap(
             _NonAtomicAsyncController.as_view()(dmr_async_rf.get('/')),
         )
-        assert response.status_code == HTTPStatus.OK, f'request {n + 1} was unexpectedly blocked'
+        assert response.status_code == HTTPStatus.OK, (
+            f'request {req_num} was unexpectedly blocked'
+        )
 
     response = await dmr_async_rf.wrap(
         _NonAtomicAsyncController.as_view()(dmr_async_rf.get('/')),
@@ -245,58 +287,89 @@ async def test_non_atomic_fallback_enforces_limit_async(
 
 class _SyncReportController(Controller[PydanticFastSerializer]):
     @validate(
-        ResponseSpec(str, status_code=HTTPStatus.OK, headers=_xrate.provide_headers_specs()),
-        throttling=[SyncThrottle(_LIMIT, Rate.second, response_headers=[_xrate])],
+        ResponseSpec(
+            str,
+            status_code=HTTPStatus.OK,
+            headers=_xrate.provide_headers_specs(),
+        ),
+        throttling=[
+            SyncThrottle(_LIMIT, Rate.second, response_headers=[_xrate]),
+        ],
     )
     def get(self) -> HttpResponse:
         return self.to_response('ok', headers=ThrottlingReport(self).report())
 
 
-def test_throttling_report_decrements_remaining_sync(
+def test_throttling_report_decrements_remaining_sync(  # noqa: WPS118
     dmr_rf: DMRRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """ThrottlingReport reflects decreasing remaining count as atomic increments accumulate."""
+    """ThrottlingReport reflects remaining count decreasing per atomic incr."""
     for expected_remaining in range(_LIMIT - 1, -1, -1):
         response = _SyncReportController.as_view()(dmr_rf.get('/'))
         assert response.status_code == HTTPStatus.OK
-        assert response.headers.get('X-RateLimit-Remaining') == str(expected_remaining)
+        assert response.headers.get('X-RateLimit-Remaining') == str(
+            expected_remaining,
+        )
         assert response.headers.get('X-RateLimit-Limit') == str(_LIMIT)
 
 
 class _AsyncReportController(Controller[PydanticFastSerializer]):
     @validate(
-        ResponseSpec(str, status_code=HTTPStatus.OK, headers=_xrate.provide_headers_specs()),
-        throttling=[AsyncThrottle(_LIMIT, Rate.second, response_headers=[_xrate])],
+        ResponseSpec(
+            str,
+            status_code=HTTPStatus.OK,
+            headers=_xrate.provide_headers_specs(),
+        ),
+        throttling=[
+            AsyncThrottle(_LIMIT, Rate.second, response_headers=[_xrate]),
+        ],
     )
     async def get(self) -> HttpResponse:
-        return self.to_response('ok', headers=await ThrottlingReport(self).areport())
+        return self.to_response(
+            'ok',
+            headers=await ThrottlingReport(self).areport(),
+        )
 
 
 @pytest.mark.asyncio
-async def test_throttling_report_decrements_remaining_async(
+async def test_throttling_report_decrements_remaining_async(  # noqa: WPS118
     dmr_async_rf: DMRAsyncRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """ThrottlingReport reflects decreasing remaining count as async atomic increments accumulate."""
+    """Async ThrottlingReport reflects remaining count decreasing per incr."""
     for expected_remaining in range(_LIMIT - 1, -1, -1):
         response = await dmr_async_rf.wrap(
             _AsyncReportController.as_view()(dmr_async_rf.get('/')),
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.headers.get('X-RateLimit-Remaining') == str(expected_remaining)
+        assert response.headers.get('X-RateLimit-Remaining') == str(
+            expected_remaining,
+        )
         assert response.headers.get('X-RateLimit-Limit') == str(_LIMIT)
 
 
 class _AtomicGuardBackend(DjangoCache):
-    """Backend that raises if incr_with_expiry is called, confirming LeakyBucket never calls it."""
+    """Guard backend: raises on incr_with_expiry to confirm LeakyBucket."""
 
     @override
-    def incr_with_expiry(self, endpoint, controller, cache_key, ttl_seconds):  # type: ignore[override]
+    def incr_with_expiry(
+        self,
+        endpoint: Any,
+        controller: Any,
+        cache_key: str,
+        ttl_seconds: int,
+    ) -> tuple[int, int]:
         raise AssertionError('LeakyBucket must not call incr_with_expiry')
 
     @override
-    async def aincr_with_expiry(self, endpoint, controller, cache_key, ttl_seconds):  # type: ignore[override]
+    async def aincr_with_expiry(
+        self,
+        endpoint: Any,
+        controller: Any,
+        cache_key: str,
+        ttl_seconds: int,
+    ) -> tuple[int, int]:
         raise AssertionError('LeakyBucket must not call incr_with_expiry')
 
 
@@ -318,9 +391,12 @@ def test_leaky_bucket_does_not_use_atomic_path(
     dmr_rf: DMRRequestFactory,
     freezer: FrozenDateTimeFactory,
 ) -> None:
-    """LeakyBucket uses the non-atomic get/set path and never calls incr_with_expiry."""
+    """LeakyBucket uses get/set and never calls incr_with_expiry."""
     for _ in range(_LIMIT):
-        assert _LeakyBucketController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+        assert (
+            _LeakyBucketController.as_view()(dmr_rf.get('/')).status_code
+            == HTTPStatus.OK
+        )
 
     assert (
         _LeakyBucketController.as_view()(dmr_rf.get('/')).status_code
@@ -329,13 +405,16 @@ def test_leaky_bucket_does_not_use_atomic_path(
 
     freezer.tick(delta=int(Rate.second))
 
-    assert _LeakyBucketController.as_view()(dmr_rf.get('/')).status_code == HTTPStatus.OK
+    assert (
+        _LeakyBucketController.as_view()(dmr_rf.get('/')).status_code
+        == HTTPStatus.OK
+    )
 
 
 _N_CONCURRENT: Final = 20
 
 
-def test_incr_with_expiry_is_safe_under_concurrent_threads() -> None:
+def test_incr_with_expiry_is_safe_under_concurrent_threads() -> None:  # noqa: WPS118
     """Concurrent threads each receive a unique, gapless count.
 
     LocMemCache is single-process only, but this test pins the intra-process
@@ -344,27 +423,30 @@ def test_incr_with_expiry_is_safe_under_concurrent_threads() -> None:
     server-side atomic operations.
     """
     backend = DjangoCache()
-    results: list[int] = []
+    counts: list[int] = []
     lock = threading.Lock()
 
     def _worker() -> None:
         count, _ = backend.incr_with_expiry(
-            MagicMock(), MagicMock(), 'thread_concurrent::c', 60,
+            MagicMock(),
+            MagicMock(),
+            'thread_concurrent::c',
+            60,
         )
         with lock:
-            results.append(count)
+            counts.append(count)
 
     threads = [threading.Thread(target=_worker) for _ in range(_N_CONCURRENT)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
 
-    assert sorted(results) == list(range(1, _N_CONCURRENT + 1))
+    assert sorted(counts) == list(range(1, _N_CONCURRENT + 1))
 
 
 @pytest.mark.asyncio
-async def test_incr_with_expiry_is_safe_under_concurrent_coroutines() -> None:
+async def test_incr_with_expiry_is_safe_under_concurrent_coroutines() -> None:  # noqa: WPS118
     """Concurrent coroutines each receive a unique, gapless count.
 
     asyncio.gather schedules coroutines on a single thread, so there is no
@@ -376,9 +458,14 @@ async def test_incr_with_expiry_is_safe_under_concurrent_coroutines() -> None:
 
     async def _worker() -> int:
         count, _ = await backend.aincr_with_expiry(
-            MagicMock(), MagicMock(), 'async_concurrent::c', 60,
+            MagicMock(),
+            MagicMock(),
+            'async_concurrent::c',
+            60,
         )
         return count
 
-    results = list(await asyncio.gather(*[_worker() for _ in range(_N_CONCURRENT)]))
-    assert sorted(results) == list(range(1, _N_CONCURRENT + 1))
+    counts = list(
+        await asyncio.gather(*[_worker() for _ in range(_N_CONCURRENT)]),
+    )
+    assert sorted(counts) == list(range(1, _N_CONCURRENT + 1))

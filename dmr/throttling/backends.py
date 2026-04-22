@@ -80,7 +80,7 @@ class BaseThrottleBackend:
         """Async set the cached rate limit state."""
         raise NotImplementedError
 
-    def incr_with_expiry(
+    def incr_with_expiry(  # noqa: WPS324
         self,
         endpoint: 'Endpoint',
         controller: 'Controller[BaseSerializer]',
@@ -106,9 +106,9 @@ class BaseThrottleBackend:
             ``incr_with_expiry`` returns a real value, such as the
             default :class:`DjangoCache` backed by Redis or Memcached.
         """
-        return None
+        return None  # noqa: WPS324
 
-    async def aincr_with_expiry(
+    async def aincr_with_expiry(  # noqa: WPS324
         self,
         endpoint: 'Endpoint',
         controller: 'Controller[BaseSerializer]',
@@ -116,11 +116,11 @@ class BaseThrottleBackend:
         ttl_seconds: int,
     ) -> tuple[int, int] | None:
         """Async version of :meth:`incr_with_expiry`."""
-        return None
+        return None  # noqa: WPS324
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class DjangoCache(BaseThrottleBackend):
+class DjangoCache(BaseThrottleBackend):  # noqa: WPS214
     """
     Uses Django cache framework for storing the rate limiting state.
 
@@ -151,7 +151,8 @@ class DjangoCache(BaseThrottleBackend):
         Two storage formats co-exist in the same cache namespace:
 
         * **Atomic path** (written by :meth:`incr_with_expiry`):
-          ``{cache_key}::c`` (``int`` counter) + ``{cache_key}::t`` (window expiry).
+          ``{cache_key}::c`` (``int`` counter) +
+          ``{cache_key}::t`` (window expiry).
         * **Non-atomic / legacy path** (written by :meth:`set`):
           ``{cache_key}`` (serialised :class:`CachedRateLimit`).
 
@@ -261,7 +262,7 @@ class DjangoCache(BaseThrottleBackend):
         except ValueError:
             if self._cache.add(count_key, 0, ttl_seconds):
                 self._cache.add(time_key, window_expiry, ttl_seconds)
-            try:
+            try:  # noqa: WPS505
                 count = self._cache.incr(count_key)
             except ValueError:
                 self._cache.set(count_key, 1, ttl_seconds)
@@ -294,7 +295,10 @@ class DjangoCache(BaseThrottleBackend):
             operations once that support lands (maybe).
         """
         return self.incr_with_expiry(
-            endpoint, controller, cache_key, ttl_seconds,
+            endpoint,
+            controller,
+            cache_key,
+            ttl_seconds,
         )
 
     def _load_cache(
