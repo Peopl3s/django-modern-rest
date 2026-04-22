@@ -211,7 +211,11 @@ class SyncThrottle(_BaseThrottle):
     ) -> None:
         """Check whether this request has rate limiting quota left."""
         self._algorithm.check_and_record(
-            endpoint, controller, self, self._backend, cache_key,
+            endpoint,
+            controller,
+            self,
+            self._backend,
+            cache_key,
         )
 
     def report_usage(
@@ -268,7 +272,11 @@ class AsyncThrottle(_BaseThrottle):
     ) -> None:
         """Check whether this request has rate limiting quota left."""
         await self._algorithm.acheck_and_record(
-            endpoint, controller, self, self._backend, cache_key,
+            endpoint,
+            controller,
+            self,
+            self._backend,
+            cache_key,
         )
 
     async def report_usage(
