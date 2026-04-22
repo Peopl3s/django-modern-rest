@@ -47,6 +47,13 @@ of requirements for an API to count as public.
 ### Misc
 
 - Optimized `dmr_client` and `dmr_rf` test fixtures to use `msgspec` for JSON encoding when available, #889
+- Fixed a race condition in `SyncThrottle` / `AsyncThrottle` under multi-worker deployments
+  (Gunicorn, uvicorn `--workers N`): per-process `threading.Lock` / `asyncio.Lock` guards
+  were removed and replaced with an atomic `cache.add` + `cache.incr` increment on the
+  `DjangoCache` backend. For Redis and Memcached this makes the counter safe across all
+  workers; `LocMemCache` (typically used in tests) keeps the single-process guarantee it
+  always had. Custom backends that do not implement `incr_with_expiry` (return `None`)
+  transparently fall back to the previous read-modify-write path.
 
 
 ## Version 0.7.0 (2026-04-14)

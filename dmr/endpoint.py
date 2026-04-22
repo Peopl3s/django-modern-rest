@@ -1,6 +1,4 @@
-import asyncio
 import inspect
-import threading
 from collections.abc import Awaitable, Callable, Mapping, Sequence, Set
 from functools import wraps
 from http import HTTPStatus
@@ -71,10 +69,8 @@ class Endpoint:  # noqa: WPS214
     """
 
     __slots__ = (
-        '_async_lock',
         '_func',
         '_serializer_context',
-        '_sync_lock',
         'is_async',
         'metadata',
         'request_negotiator',
@@ -126,9 +122,6 @@ class Endpoint:  # noqa: WPS214
 
             Endpoint object must **not** have any mutable instance state,
             because its instance is reused for all requests.
-            It is fine to have common locks for throttling, because
-            this way we guard cache concurrent access
-            from different thread / coroutines.
 
         """
         type_annotations = controller_cls.annotations_context(func)
@@ -181,10 +174,6 @@ class Endpoint:  # noqa: WPS214
         )
         # We can now run endpoint's optimization:
         controller_cls.serializer.optimizer.optimize_endpoint(metadata)
-
-        # Locks:
-        self._sync_lock = threading.Lock()
-        self._async_lock = asyncio.Lock()
 
         # Now we can add wrappers:
         if inspect.iscoroutinefunction(func):
@@ -430,8 +419,7 @@ class Endpoint:  # noqa: WPS214
             return
         for throttle in self.metadata.throttling_before_auth:
             assert isinstance(throttle, SyncThrottle)  # noqa: S101
-            with self._sync_lock:
-                throttle(self, controller)
+            throttle(self, controller)
 
     def _run_auth(self, controller: 'Controller[BaseSerializer]') -> None:
         if self.metadata.auth is None:
@@ -452,8 +440,7 @@ class Endpoint:  # noqa: WPS214
             return
         for throttle in self.metadata.throttling_after_auth:
             assert isinstance(throttle, SyncThrottle)  # noqa: S101
-            with self._sync_lock:
-                throttle(self, controller)
+            throttle(self, controller)
 
     # Async checks:
 
@@ -478,9 +465,7 @@ class Endpoint:  # noqa: WPS214
             return
         for throttle in self.metadata.throttling_before_auth:
             assert isinstance(throttle, AsyncThrottle)  # noqa: S101
-            # We have to check them in sync one by one :(
-            async with self._async_lock:
-                await throttle(self, controller)  # noqa: WPS476
+            await throttle(self, controller)  # noqa: WPS476
 
     async def _run_async_auth(
         self,
@@ -504,9 +489,7 @@ class Endpoint:  # noqa: WPS214
             return
         for throttle in self.metadata.throttling_after_auth:
             assert isinstance(throttle, AsyncThrottle)  # noqa: S101
-            # We have to check them in sync one by one :(
-            async with self._async_lock:
-                await throttle(self, controller)  # noqa: WPS476
+            await throttle(self, controller)  # noqa: WPS476
 
     # Utils:
 

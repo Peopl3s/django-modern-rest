@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from dmr.endpoint import Endpoint
     from dmr.serializer import BaseSerializer
     from dmr.throttling import AsyncThrottle, SyncThrottle
+    from dmr.throttling.backends import BaseThrottleBackend
 
 
 # TODO: This file is pure logic. Maybe compile it?
@@ -63,6 +64,62 @@ class BaseThrottleAlgorithm:
     ) -> dict[str, str]:
         """Reports the throttling usage, but does not additionally increment."""
         raise NotImplementedError
+
+    def check_and_record(
+        self,
+        endpoint: 'Endpoint',
+        controller: 'Controller[BaseSerializer]',
+        throttle: 'SyncThrottle | AsyncThrottle',
+        backend: 'BaseThrottleBackend',
+        cache_key: str,
+    ) -> None:
+        """
+        Check the rate limit and record this request in one step.
+
+        The default implementation is a non-atomic read-modify-write and is
+        only safe within a single worker process.  Override (as
+        :class:`SimpleRate` does) to use backend-provided atomic operations
+        that are safe across multiple worker processes.
+
+        Raises:
+            dmr.exceptions.TooManyRequestsError: when the limit is exceeded.
+        """
+        cache_object = self.access(
+            endpoint,
+            controller,
+            throttle,
+            backend.get(endpoint, controller, cache_key),
+        )
+        backend.set(
+            endpoint,
+            controller,
+            cache_key,
+            self.record(endpoint, controller, throttle, cache_object),
+            ttl_seconds=throttle.duration_in_seconds,
+        )
+
+    async def acheck_and_record(
+        self,
+        endpoint: 'Endpoint',
+        controller: 'Controller[BaseSerializer]',
+        throttle: 'SyncThrottle | AsyncThrottle',
+        backend: 'BaseThrottleBackend',
+        cache_key: str,
+    ) -> None:
+        """Async version of :meth:`check_and_record`."""
+        cache_object = self.access(
+            endpoint,
+            controller,
+            throttle,
+            await backend.aget(endpoint, controller, cache_key),
+        )
+        await backend.aset(
+            endpoint,
+            controller,
+            cache_key,
+            self.record(endpoint, controller, throttle, cache_object),
+            ttl_seconds=throttle.duration_in_seconds,
+        )
 
 
 class SimpleRate(BaseThrottleAlgorithm):
@@ -127,6 +184,74 @@ class SimpleRate(BaseThrottleAlgorithm):
             now,
             report_all=False,
         )
+
+    @override
+    def check_and_record(
+        self,
+        endpoint: 'Endpoint',
+        controller: 'Controller[BaseSerializer]',
+        throttle: 'SyncThrottle | AsyncThrottle',
+        backend: 'BaseThrottleBackend',
+        cache_key: str,
+    ) -> None:
+        result = backend.incr_with_expiry(
+            endpoint, controller, cache_key, throttle.duration_in_seconds,
+        )
+        if result is None:
+            super().check_and_record(
+                endpoint, controller, throttle, backend, cache_key,
+            )
+            return
+        count, window_expiry = result
+        if count > throttle.max_requests:
+            raise TooManyRequestsError(
+                headers=self._report_usage(
+                    endpoint,
+                    controller,
+                    throttle,
+                    CachedRateLimit(
+                        # history[0] is repurposed here as the counter value.
+                        # Setting it to max_requests causes _report_usage to
+                        # compute remaining=0, which is correct for a 429.
+                        history=[throttle.max_requests],
+                        time=window_expiry,
+                    ),
+                    int(time.time()),
+                ),
+            )
+
+    @override
+    async def acheck_and_record(
+        self,
+        endpoint: 'Endpoint',
+        controller: 'Controller[BaseSerializer]',
+        throttle: 'SyncThrottle | AsyncThrottle',
+        backend: 'BaseThrottleBackend',
+        cache_key: str,
+    ) -> None:
+        result = await backend.aincr_with_expiry(
+            endpoint, controller, cache_key, throttle.duration_in_seconds,
+        )
+        if result is None:
+            await super().acheck_and_record(
+                endpoint, controller, throttle, backend, cache_key,
+            )
+            return
+        count, window_expiry = result
+        if count > throttle.max_requests:
+            raise TooManyRequestsError(
+                headers=self._report_usage(
+                    endpoint,
+                    controller,
+                    throttle,
+                    CachedRateLimit(
+                        # See sync check_and_record for the history[0] convention.
+                        history=[throttle.max_requests],
+                        time=window_expiry,
+                    ),
+                    int(time.time()),
+                ),
+            )
 
     def _process_cache(
         self,

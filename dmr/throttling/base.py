@@ -50,10 +50,8 @@ class Rate(enum.IntEnum):
 class _BaseThrottle(ResponseSpecProvider):
     __slots__ = (
         '_algorithm',
-        '_async_lock',
         '_backend',
         '_response_headers',
-        '_sync_lock',
         'cache_key',
         'duration_in_seconds',
         'max_requests',
@@ -212,24 +210,8 @@ class SyncThrottle(_BaseThrottle):
         cache_key: str,
     ) -> None:
         """Check whether this request has rate limiting quota left."""
-        # NOTE: this is locked on endpoint.py level, don't worry:
-        cache_object = self._algorithm.access(
-            endpoint,
-            controller,
-            self,
-            self._backend.get(endpoint, controller, cache_key),
-        )
-        self._backend.set(
-            endpoint,
-            controller,
-            cache_key,
-            self._algorithm.record(
-                endpoint,
-                controller,
-                self,
-                cache_object,
-            ),
-            ttl_seconds=self.duration_in_seconds,
+        self._algorithm.check_and_record(
+            endpoint, controller, self, self._backend, cache_key,
         )
 
     def report_usage(
@@ -285,24 +267,8 @@ class AsyncThrottle(_BaseThrottle):
         cache_key: str,
     ) -> None:
         """Check whether this request has rate limiting quota left."""
-        # NOTE: this is locked on endpoint.py level, don't worry:
-        cache_object = self._algorithm.access(
-            endpoint,
-            controller,
-            self,
-            await self._backend.aget(endpoint, controller, cache_key),
-        )
-        await self._backend.aset(
-            endpoint,
-            controller,
-            cache_key,
-            self._algorithm.record(
-                endpoint,
-                controller,
-                self,
-                cache_object,
-            ),
-            ttl_seconds=self.duration_in_seconds,
+        await self._algorithm.acheck_and_record(
+            endpoint, controller, self, self._backend, cache_key,
         )
 
     async def report_usage(
