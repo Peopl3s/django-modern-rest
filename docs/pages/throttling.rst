@@ -148,6 +148,49 @@ Full list of algorithms that we ship in ``django-modern-rest``:
   drains continuously providing smoother rate-limiting
   without allowing bursts at window boundaries.
 
+.. warning::
+
+  :class:`~dmr.throttling.algorithms.SimpleRate` uses a **fixed window**
+  that resets when the window expires. This allows a boundary burst pattern:
+  a client can send ``N`` requests right before the window resets and ``N``
+  more right after, effectively firing ``2N`` requests in a short interval
+  while remaining within the configured per-window limit.
+
+  For abuse-sensitive endpoints (login, OTP, password reset) prefer
+  :class:`~dmr.throttling.algorithms.LeakyBucket`, which drains
+  continuously and eliminates this burst window.
+
+Choosing an algorithm
+^^^^^^^^^^^^^^^^^^^^^
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 18 12 24 24
+
+   * - Algorithm
+     - Window type
+     - Overhead
+     - Boundary burst risk
+     - Best suited for
+   * - :class:`~dmr.throttling.algorithms.SimpleRate`
+     - Fixed — resets after ``duration``
+     - Very low
+     - Yes — up to ``2N`` requests in a short burst
+     - General-purpose, internal, and admin endpoints
+   * - :class:`~dmr.throttling.algorithms.LeakyBucket`
+     - Continuous drain
+     - Low
+     - No — traffic is smoothed regardless of timing
+     - Auth endpoints (login, OTP, password reset), public APIs
+
+For auth and abuse-sensitive endpoints, use
+:class:`~dmr.throttling.algorithms.LeakyBucket`:
+
+.. literalinclude:: /examples/throttling/auth_leaky_bucket.py
+  :caption: views.py
+  :linenos:
+  :language: python
+
 Cache keys
 ~~~~~~~~~~
 
